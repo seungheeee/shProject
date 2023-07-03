@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Leaflet Map with Linestring</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="DATA/sea.js"></script>
+  <script src="JS/leaflet.js"></script>
+  <!--<script src="DATA/world.js"></script>-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.6.0/proj4.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4leaflet/1.0.2/proj4leaflet.js"></script>
+  <script src="https://unpkg.com/topojson@3.0.2/dist/topojson.min.js"></script>
+  <style>
+    #map1 {
+      height: 900px;
+      width: 800px;
+    }
+
+    #map2 {
+      height: 900px;
+      width: 800px;
+    }
+
+    .coordinate-label {
+      position: absolute;
+      padding: 5px;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+<div style="clear: both; float: left;">
+  <div style = "height: 25px;"><span id="coordi">aa</span></div>
+  <div id="map1"></div>
+</div>
+<div>
+  <div style = "height: 25px;"><span id="coordi2">aa</span></div>
+  <div id="map2"></div>
+</div>
+  <script src="JS/comm.js" defer></script>
+  <script src="JS/mapTestDataTrans.js" defer></script>
+  <script src="JS/mapTest.js" defer></script>
+</body>
+</html>
