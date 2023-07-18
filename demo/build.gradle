@@ -16,6 +16,9 @@ configurations {
 
 repositories {
 	mavenCentral()
+	flatDir {
+		dirs '.' // Pointing to the current directory, which is the project directory
+	}
 }
 
 dependencies {
@@ -27,7 +30,10 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	runtimeOnly 'com.h2database:h2'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	// Other dependencies...
+	implementation files('netcdfAll-4.6.jar')
 }
+
 
 tasks.named('test') {
 	useJUnitPlatform()
