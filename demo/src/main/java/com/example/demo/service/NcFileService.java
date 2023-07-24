@@ -1,69 +1,152 @@
 package com.example.demo.service;
 
-import com.example.demo.dto.MemberDto;
 import com.example.demo.dto.NcFileDto;
-import com.example.demo.dto.ReadNcfileInfoDto;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ucar.ma2.ArrayInt;
+import ucar.ma2.Index;
+import ucar.ma2.InvalidRangeException;
+import ucar.ma2.Range;
 import ucar.nc2.NetcdfFile;
 import ucar.nc2.Variable;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 @Service
 public class NcFileService {
 
-    @Resource
-    NcFileDto ncfileDto;
+    private NcFileDto ncfileDto;
 
-    @Resource
-    ReadNcfileInfoDto ncfileInfoDto;
+    @Autowired
+    public NcFileService(NcFileDto ncFileDto){
+        this.ncfileDto = ncFileDto;
+    }
 
-    NetcdfFile ncfile = null;
-    public void ncfileOpen() throws Exception{
-        File fullPath = new File(ncfileInfoDto.getFullPath());
-        if(fullPath.isFile()) {
-            ncfile = ncfile.open(ncfileInfoDto.getFullPath());
-            ncfileDto = NcFileDto.builder()
-                    .netcdfFile(ncfile)
-                    .build();
+    public NcFileDto getData(String fullPath, int sTime, String varName) throws Exception {
+        NetcdfFile ncfile = ncfileOpen(fullPath);
+        Variable variable = ncfile.findVariable(varName);
+        int[] shapeArr = getShape(ncfile, varName);
+
+        ArrayInt.D3 ncData = processExtract(variable, sTime, shapeArr);
+        double scaleFactor = variable.findAttribute("scale_factor").getNumericValue().doubleValue();
+
+//        double[] dataArray = Arrays.stream((int[]) ncData.copyTo1DJavaArray())
+//                .asDoubleStream()
+//                .toArray();
+        int[] intData = (int[]) ncData.copyTo1DJavaArray();
+
+        double[] dataArray = new double[intData.length];
+
+        double smallest = intData[0];
+        double largest = intData[0];
+        for (int i = 0; i < intData.length; i++) {
+            if (intData[i] < smallest) {
+                smallest = intData[i];  // Update smallest if current element is smaller
+            } else if (intData[i] > largest) {
+                largest = intData[i];  // Update largest if current element is larger
+            }
+            dataArray[i] = climateRound(intData[i] * scaleFactor);
+        }
+
+        ncfileDto.setDataArray(dataArray);
+
+        List<String> colorArray = getColor(dataArray, smallest * scaleFactor, largest * scaleFactor);
+
+        ncfileDto.setColorArray(colorArray);
+        System.out.println(colorArray.size());
+        ncfile.close();
+        return ncfileDto;
+    }
+
+    public double climateRound(double data) {
+        data = (data * 10) + 0.5;
+        data = Math.floor(data);
+        data *= 0.1;
+        return Double.parseDouble(String.format("%.1f", data));
+    }
+
+    public ArrayInt.D3 processExtract(Variable variable, int sTime, int[] shapeArr) throws InvalidRangeException, IOException {
+        List<Range> rangeList = IntStream.range(0, 3)
+                .mapToObj(i -> {
+                    try {
+                        return i == 0 ? new Range(0, 0, 1) : new Range(0, shapeArr[i] - 1, 1);
+                    } catch (InvalidRangeException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .collect(Collectors.toList());
+
+        List<Range> lr = rangeList.stream()
+                .limit(3)
+                .collect(Collectors.toList());
+
+        ArrayInt.D3 multiData = (ArrayInt.D3) variable.read(lr);
+        return multiData;
+    }
+
+    public NetcdfFile ncfileOpen(String fullPath) throws Exception{
+        File file = new File(fullPath);
+        NetcdfFile ncfile = null;
+        if(file.isFile()) {
+            ncfile = ncfile.open(fullPath);
+            String ncfileInfo = ncfileInfo(ncfile);
+            System.out.println(ncfileInfo);
+            return ncfile;
         }else{
             System.out.println("존재하지않는 파일");
             throw new Exception();
         }
-        
     }
 
-    public String ncfileInfo() throws Exception{
-        ncfile = ncfileDto.getNetcdfFile();
+    public String ncfileInfo(NetcdfFile ncfile) throws Exception{
         String ncfileInfo = ncfile.getVariables().toString();
         return ncfileInfo;
     }
 
-    public void getShape() {
-        String varName = ncfileInfoDto.getVarName();
-        Variable variable = ncfileDto.getNetcdfFile().findVariable(varName);
-        HashMap<String, int[]> shapeMap = new HashMap<>();
-        shapeMap.put(varName, variable.getShape());
-
-        ncfileDto = NcFileDto.builder()
-                .shapeGroup(shapeMap)
-                .build();
+    public int[] getShape(NetcdfFile ncfile, String varName) {
+        Variable variable = ncfile.findVariable(varName);
+        return variable.getShape();
     }
 
-    public void getData() throws IOException {
-        Variable variable = ncfileDto.getNetcdfFile().findVariable(ncfileInfoDto.getVarName());
-        ArrayInt.D3 ncData = (ArrayInt.D3) variable.read();
-        HashMap<String, Object> data = new HashMap<>();
-        data.put(ncfileInfoDto.getVarName(),ncData.get(ncfileInfoDto.getTimeIdx(),ncfileInfoDto.getLatIdx(),ncfileInfoDto.getLonIdx()));
-        ncfileDto.setDataArray(data);
+    public List<String> getColor(double[] value, double smallest, double largest) {
+        List<String> colorArray = new ArrayList<>();
+        String[] rgbArr = {"rgb(  0,  0,248)", "rgb(  0, 69,255)" , "rgb(  0,144,255)", "rgb(  0,219,255)" , "rgb(110,255,145)" ,"rgb(235,255, 20)" , "rgb(255,184,  0)" , "rgb(255,100,  0)" , "rgb(255, 16,  0)" , "rgb(160,  0,  0)"};
+        double interval = (largest - smallest) * 0.1;
+        double[] rangeArr = new double[10];
+
+        for(int i = 0; i < 10; i++){
+            rangeArr[i] = smallest + (i * interval);
+        }
+        System.out.println(Arrays.toString(rangeArr));
+        System.out.println(value.length);
+        for(int i = 0; i < value.length; i++){
+            for(int j = 0; j < rangeArr.length; j++){
+                if(j != 9){
+                    if(value[i] >= rangeArr[j] && value[i] < rangeArr[j+1]){
+                        //System.out.println(j);
+                        colorArray.add(rgbArr[j]);
+                        break;
+                    }
+                }else{
+                    if(value[i] > rangeArr[9]){
+                        //System.out.println(j);
+                        colorArray.add(rgbArr[9]);
+                        break;
+                    }
+                }
+
+            }
+        }
+        //double hue = (1 - value) * 120;
+        return colorArray;
     }
+
 /*
     public void sample(){
         for(timeIdx = sTime; timeIdx < sTime + (12 * selectYear); timeIdx++) {

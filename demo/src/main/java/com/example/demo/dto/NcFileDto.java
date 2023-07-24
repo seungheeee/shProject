@@ -2,15 +2,14 @@ package com.example.demo.dto;
 
 import lombok.Builder;
 import lombok.Data;
-import ucar.nc2.NetcdfFile;
+import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
+import java.util.List;
 
 @Data
 @Builder
+@Component
 public class NcFileDto {
-    private NetcdfFile netcdfFile;
-    private HashMap<String, int[]> shapeGroup;
-    private HashMap<String, Object> dataArray;
-    //time, lon, lat idx
+    private double[] dataArray;
+    private List<String> colorArray;
 }
