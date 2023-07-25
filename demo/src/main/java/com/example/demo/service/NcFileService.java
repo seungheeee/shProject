@@ -4,10 +4,8 @@ import com.example.demo.dto.NcFileDto;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import ucar.ma2.ArrayInt;
-import ucar.ma2.Index;
-import ucar.ma2.InvalidRangeException;
-import ucar.ma2.Range;
+import ucar.ma2.*;
+import ucar.nc2.Attribute;
 import ucar.nc2.NetcdfFile;
 import ucar.nc2.Variable;
 
@@ -33,14 +31,16 @@ public class NcFileService {
         Variable variable = ncfile.findVariable(varName);
         int[] shapeArr = getShape(ncfile, varName);
 
-        ArrayInt.D3 ncData = processExtract(variable, sTime, shapeArr);
-        double scaleFactor = variable.findAttribute("scale_factor").getNumericValue().doubleValue();
+        Array ncData = processExtract(variable, sTime, shapeArr);
+        double scaleFactor = 1;
+        Attribute attribute = variable.findAttribute("scale_factor");
+        if (attribute != null) {
+            scaleFactor = attribute.getNumericValue().doubleValue();
+        } else {
+            System.out.println("scale_factor 존재하지않음");
+        }
 
-//        double[] dataArray = Arrays.stream((int[]) ncData.copyTo1DJavaArray())
-//                .asDoubleStream()
-//                .toArray();
-        int[] intData = (int[]) ncData.copyTo1DJavaArray();
-
+        float[] intData = (float[]) ncData.copyTo1DJavaArray();
         double[] dataArray = new double[intData.length];
 
         double smallest = intData[0];
@@ -53,7 +53,6 @@ public class NcFileService {
             }
             dataArray[i] = climateRound(intData[i] * scaleFactor);
         }
-
         ncfileDto.setDataArray(dataArray);
 
         List<String> colorArray = getColor(dataArray, smallest * scaleFactor, largest * scaleFactor);
@@ -71,7 +70,7 @@ public class NcFileService {
         return Double.parseDouble(String.format("%.1f", data));
     }
 
-    public ArrayInt.D3 processExtract(Variable variable, int sTime, int[] shapeArr) throws InvalidRangeException, IOException {
+    public Array processExtract(Variable variable, int sTime, int[] shapeArr) throws InvalidRangeException, IOException {
         List<Range> rangeList = IntStream.range(0, 3)
                 .mapToObj(i -> {
                     try {
@@ -86,7 +85,7 @@ public class NcFileService {
                 .limit(3)
                 .collect(Collectors.toList());
 
-        ArrayInt.D3 multiData = (ArrayInt.D3) variable.read(lr);
+        Array multiData = (Array) variable.read(lr);
         return multiData;
     }
 

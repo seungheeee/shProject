@@ -10,10 +10,11 @@ import org.springframework.context.annotation.Configuration;
 
 import javax.sql.DataSource;
 
-/*@Configuration
-@MapperScan(value = "com.example.demo.mapper" // mapper 인터페이스 경로 (경로를 반드시 잘 확인해주세요!)
+//@Configuration
+/*@MapperScan(value = "com.example.demo.mapper" // mapper 인터페이스 경로 (경로를 반드시 잘 확인해주세요!)
         ,annotationClass = Mapper.class // 스캔할 어노테이션 이름
-        ,sqlSessionFactoryRef = "sqlSessionFactory") // sqlSessionFactory Bean 이름*/
+        ,sqlSessionFactoryRef = "sqlSessionFactory") // sqlSessionFactory Bean 이름
+
 public class DataConfig {
     //@Bean
     public SqlSessionFactory sqlSessionFactory(DataSource dataSource, ApplicationContext applicationContext) throws Exception {
@@ -23,3 +24,4 @@ public class DataConfig {
         return sqlSessionFactoryBean.getObject();
     }
 }
+*/

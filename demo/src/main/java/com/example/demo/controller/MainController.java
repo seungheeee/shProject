@@ -3,6 +3,8 @@ package com.example.demo.controller;
 import com.example.demo.dto.NcFileDto;
 import com.example.demo.service.NcFileService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,11 +32,11 @@ public class MainController {
     @GetMapping("/api/ncfile")
     public ResponseEntity ncfileApi(
             @RequestParam(defaultValue = "0",name = "sTime") int sTime
-            , @RequestParam(defaultValue = "WS",name = "varName") String varName
+            , @RequestParam(defaultValue = "unknown",name = "varName") String varName
             //, @RequestParam("selectYear") int selectYear
             //, @RequestParam("selectMonth") int selectMonth
     ) throws Exception {
-        String fullPath = "C:\\PROJECT_2022\\GIS\\workspace\\lowattr_climate\\src\\main\\webapp\\DATA\\netCDF_file\\001\\era5_001_monthly_0010m_wind_1991_2021.nc";
+        String fullPath = "C:\\PROJECT_2022\\DFS_SHRT_GRD_GRB4_PCP.202201162000.nc";
 
         //return ncFileService.getData(fullPath, sTime, varName);
         NcFileDto ncFileDto = ncFileService.getData(fullPath, sTime, varName);
