@@ -1,20 +1,17 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.NcFileDto;
-import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ucar.ma2.*;
-import ucar.nc2.Attribute;
-import ucar.nc2.NetcdfFile;
-import ucar.nc2.Variable;
+import ucar.nc2.*;
+import ucar.nc2.dataset.NetcdfDataset;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 @Service
 public class NcFileService {
@@ -31,7 +28,8 @@ public class NcFileService {
         Variable variable = ncfile.findVariable(varName);
         int[] shapeArr = getShape(ncfile, varName);
 
-        Array ncData = processExtract(variable, sTime, shapeArr);
+        List<Range> lr = processExtract(sTime, shapeArr);
+        Array ncData = variable.read(lr);
         double scaleFactor = 1;
         Attribute attribute = variable.findAttribute("scale_factor");
         if (attribute != null) {
@@ -70,11 +68,11 @@ public class NcFileService {
         return Double.parseDouble(String.format("%.1f", data));
     }
 
-    public Array processExtract(Variable variable, int sTime, int[] shapeArr) throws InvalidRangeException, IOException {
+    public List<Range> processExtract(int sTime, int[] shapeArr) throws InvalidRangeException, IOException {
         List<Range> rangeList = IntStream.range(0, 3)
                 .mapToObj(i -> {
                     try {
-                        return i == 0 ? new Range(0, 0, 1) : new Range(0, shapeArr[i] - 1, 1);
+                        return i == 0 ? new Range(sTime, sTime, 1) : new Range(0, shapeArr[i] - 1, 1);
                     } catch (InvalidRangeException e) {
                         throw new RuntimeException(e);
                     }
@@ -85,8 +83,7 @@ public class NcFileService {
                 .limit(3)
                 .collect(Collectors.toList());
 
-        Array multiData = (Array) variable.read(lr);
-        return multiData;
+        return lr;
     }
 
     public NetcdfFile ncfileOpen(String fullPath) throws Exception{
@@ -115,10 +112,10 @@ public class NcFileService {
 
     public List<String> getColor(double[] value, double smallest, double largest) {
         List<String> colorArray = new ArrayList<>();
-        String[] rgbArr = {"rgb(  0,  0,248)", "rgb(  0, 69,255)" , "rgb(  0,144,255)", "rgb(  0,219,255)" , "rgb(110,255,145)" ,"rgb(235,255, 20)" , "rgb(255,184,  0)" , "rgb(255,100,  0)" , "rgb(255, 16,  0)" , "rgb(160,  0,  0)"};
+        String[] rgbArr = {"rgb(0,0,248)", "rgb(0,69,255)" , "rgb(0,144,255)", "rgb(0,219,255)" , "rgb(110,255,145)" ,"rgb(235,255,20)" , "rgb(255,184,0)" , "rgb(255,100,0)" , "rgb(255,16,0)" , "rgb(160,0,0)"};
         double interval = (largest - smallest) * 0.1;
         double[] rangeArr = new double[10];
-
+        System.out.println(smallest);
         for(int i = 0; i < 10; i++){
             rangeArr[i] = smallest + (i * interval);
         }
@@ -128,22 +125,74 @@ public class NcFileService {
             for(int j = 0; j < rangeArr.length; j++){
                 if(j != 9){
                     if(value[i] >= rangeArr[j] && value[i] < rangeArr[j+1]){
-                        //System.out.println(j);
                         colorArray.add(rgbArr[j]);
                         break;
+                    }else if(value[i] < rangeArr[0]){
+                        colorArray.add(rgbArr[0]);
+                        break;
                     }
-                }else{
+                }else if(j == 9){
                     if(value[i] > rangeArr[9]){
-                        //System.out.println(j);
                         colorArray.add(rgbArr[9]);
                         break;
                     }
                 }
-
             }
         }
         //double hue = (1 - value) * 120;
         return colorArray;
+    }
+
+    public void updateDataValue(String filePath, String variableName, Map<String, String> newValue) throws Exception {
+        NetcdfFile netcdfFile = null;
+        NetcdfFileWriter writer = null;
+        int sTime = 0;
+
+        try {
+            //netcdfFile = NetcdfFile.open(filePath);
+            writer = NetcdfFileWriter.openExisting(filePath);
+            Variable var = writer.findVariable(variableName);
+            if (var == null) {
+                System.out.println("Can't find variable 'TA'");
+                return;
+            }
+            int[] shapeArr = var.getShape();
+
+            List<Range> lr = processExtract(sTime, shapeArr);
+
+            Array taArray = var.read(lr).copy();
+            float[] intData = (float[]) taArray.copyTo1DJavaArray();
+
+            // Assuming newValue is a map of {index: value}, where index is the 1D index and value is a string that can be converted to double
+            for (Map.Entry<String, String> entry : newValue.entrySet()) {
+                int index1D = Integer.parseInt(entry.getKey());
+                Float value = Float.parseFloat(entry.getValue());
+                taArray.setFloat(index1D, value);
+            }
+
+            // Write the updated array back to the file
+            writer.write(var, taArray);
+
+            System.out.println("variable updated successfully.");
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (netcdfFile != null) {
+                try {
+                    netcdfFile.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (writer != null) {
+                try {
+                    writer.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 
 /*

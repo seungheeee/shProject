@@ -7,9 +7,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Map;
 
 @RestController
 public class MainController {
@@ -31,15 +33,42 @@ public class MainController {
 
     @GetMapping("/api/ncfile")
     public ResponseEntity ncfileApi(
-            @RequestParam(defaultValue = "0",name = "sTime") int sTime
+            @RequestParam(defaultValue = "1",name = "sTime") int sTime
             , @RequestParam(defaultValue = "unknown",name = "varName") String varName
+            , @RequestParam(defaultValue = "5",name = "km") int km
             //, @RequestParam("selectYear") int selectYear
             //, @RequestParam("selectMonth") int selectMonth
     ) throws Exception {
-        String fullPath = "C:\\PROJECT_2022\\DFS_SHRT_GRD_GRB4_PCP.202201162000.nc";
+        String fullPath = "";
+        System.out.println(km);
+        if(km == 1){
+            fullPath = "C:\\PROJECT_2022\\mapTest\\DATA\\nc\\DFS_SHRT_GRD_GDPS_NPPM_T1H.202201010000.nc";
+            varName = "T1H";
+        }else{
+            fullPath = "C:\\PROJECT_2022\\mapTest\\DATA\\nc\\DFS_SHRT_GRD_GRB4_PCP.202201162000.nc";
+        }
 
-        //return ncFileService.getData(fullPath, sTime, varName);
+
+        System.out.println(varName);
         NcFileDto ncFileDto = ncFileService.getData(fullPath, sTime, varName);
         return ResponseEntity.status(HttpStatus.OK).body(ncFileDto);
+    }
+
+    @PostMapping("/api/updateNcfile")
+    public ResponseEntity<String> updateDataValue(@RequestBody Map<String, String> newValue) {
+        try {
+            System.out.println("newValue size : " + newValue.size());
+            for (Map.Entry<String, String> entry : newValue.entrySet()) {
+                System.out.println("Key: " + entry.getKey() + ", Value: " + entry.getValue());
+            }
+            String filePath = "C:\\PROJECT_2022\\DFS_SHRT_GRD_GRB4_PCP.202201162000.nc";
+            String variableName = "unknown";
+
+            ncFileService.updateDataValue(filePath, variableName, newValue);
+            return ResponseEntity.ok("Data value updated successfully.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error updating data value.");
+        }
     }
 }
