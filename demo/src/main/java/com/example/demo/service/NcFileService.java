@@ -1,27 +1,32 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.NcFileDto;
+import com.example.demo.util.PngCreator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ucar.ma2.*;
 import ucar.nc2.*;
 import ucar.nc2.dataset.NetcdfDataset;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Service
 public class NcFileService {
 
-    private NcFileDto ncfileDto;
+    //private NcFileDto ncfileDto;
 
-    @Autowired
-    public NcFileService(NcFileDto ncFileDto){
-        this.ncfileDto = ncFileDto;
-    }
+    //@Autowired
+//    public NcFileService(NcFileDto ncFileDto){
+//        this.ncfileDto = ncFileDto;
+//    }
 
     public NcFileDto getData(String fullPath, int sTime, String varName) throws Exception {
         NetcdfFile ncfile = ncfileOpen(fullPath);
@@ -51,12 +56,14 @@ public class NcFileService {
             }
             dataArray[i] = climateRound(intData[i] * scaleFactor);
         }
+        NcFileDto ncfileDto = new NcFileDto();
         ncfileDto.setDataArray(dataArray);
+        ncfileDto.setLargest(largest);
+        ncfileDto.setSmallest(smallest);
 
-        List<String> colorArray = getColor(dataArray, smallest * scaleFactor, largest * scaleFactor);
+        //List<Color> colorArray = getColor(dataArray, smallest * scaleFactor, largest * scaleFactor);
 
-        ncfileDto.setColorArray(colorArray);
-        System.out.println(colorArray.size());
+        //ncfileDto.setColorArray(colorArray);
         ncfile.close();
         return ncfileDto;
     }
@@ -110,37 +117,57 @@ public class NcFileService {
         return variable.getShape();
     }
 
-    public List<String> getColor(double[] value, double smallest, double largest) {
-        List<String> colorArray = new ArrayList<>();
-        String[] rgbArr = {"rgb(0,0,248)", "rgb(0,69,255)" , "rgb(0,144,255)", "rgb(0,219,255)" , "rgb(110,255,145)" ,"rgb(235,255,20)" , "rgb(255,184,0)" , "rgb(255,100,0)" , "rgb(255,16,0)" , "rgb(160,0,0)"};
+    public File getColor(double[] value, double smallest, double largest, int km) {
+        List<Color> colorArray = new ArrayList<>();
+        //String[] rgbArr = {"rgb(0,0,248)", "rgb(0,69,255)" , "rgb(0,144,255)", "rgb(0,219,255)" , "rgb(110,255,145)" ,"rgb(235,255,20)" , "rgb(255,184,0)" , "rgb(255,100,0)" , "rgb(255,16,0)" , "rgb(160,0,0)"};
+        Color[] rgbArr = {
+                new Color(0, 0, 248),
+                new Color(0, 69, 255),
+                new Color(0, 144, 255),
+                new Color(0, 219, 255),
+                new Color(110, 255, 145),
+                new Color(235, 255, 20),
+                new Color(255, 184, 0),
+                new Color(255, 100, 0),
+                new Color(255, 16, 0),
+                new Color(160, 0, 0)
+        };
+        int size = 1;
+        if(km == 1) size = 5;
+        int width = 149 * size; // 이미지의 너비
+        int height = 253 * size; // 이미지의 높이
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         double interval = (largest - smallest) * 0.1;
         double[] rangeArr = new double[10];
-        System.out.println(smallest);
+
         for(int i = 0; i < 10; i++){
             rangeArr[i] = smallest + (i * interval);
         }
-        System.out.println(Arrays.toString(rangeArr));
-        System.out.println(value.length);
+
+        Color color = null;
         for(int i = 0; i < value.length; i++){
             for(int j = 0; j < rangeArr.length; j++){
                 if(j != 9){
                     if(value[i] >= rangeArr[j] && value[i] < rangeArr[j+1]){
-                        colorArray.add(rgbArr[j]);
+                        //colorArray.add(rgbArr[j]);
+                        color = rgbArr[j];
                         break;
                     }else if(value[i] < rangeArr[0]){
-                        colorArray.add(rgbArr[0]);
+                        color = rgbArr[0];
                         break;
                     }
                 }else if(j == 9){
                     if(value[i] > rangeArr[9]){
-                        colorArray.add(rgbArr[9]);
+                        color = rgbArr[9];
                         break;
                     }
                 }
             }
+            image.setRGB(i%width, height - 1 - (i/width), color.getRGB());
         }
         //double hue = (1 - value) * 120;
-        return colorArray;
+        PngCreator pngCreator = new PngCreator();
+        return pngCreator.writeFile(image);
     }
 
     public void updateDataValue(String filePath, String variableName, Map<String, String> newValue) throws Exception {
