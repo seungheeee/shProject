@@ -1,9 +1,12 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.NcFileDto;
+import com.example.demo.util.*;
+import com.example.demo.util.EnumUtil;
 import com.example.demo.util.PngCreator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.yaml.snakeyaml.util.EnumUtils;
 import ucar.ma2.*;
 import ucar.nc2.*;
 import ucar.nc2.dataset.NetcdfDataset;
@@ -117,21 +120,24 @@ public class NcFileService {
         return variable.getShape();
     }
 
+
     public File getColor(double[] value, double smallest, double largest, int km) {
         List<Color> colorArray = new ArrayList<>();
+        String element = "E_IDFE_T_12";
+        Color[] rgbArr = EnumUtil.getAllColors(element);
         //String[] rgbArr = {"rgb(0,0,248)", "rgb(0,69,255)" , "rgb(0,144,255)", "rgb(0,219,255)" , "rgb(110,255,145)" ,"rgb(235,255,20)" , "rgb(255,184,0)" , "rgb(255,100,0)" , "rgb(255,16,0)" , "rgb(160,0,0)"};
-        Color[] rgbArr = {
-                new Color(0, 0, 248),
-                new Color(0, 69, 255),
-                new Color(0, 144, 255),
-                new Color(0, 219, 255),
-                new Color(110, 255, 145),
-                new Color(235, 255, 20),
-                new Color(255, 184, 0),
-                new Color(255, 100, 0),
-                new Color(255, 16, 0),
-                new Color(160, 0, 0)
-        };
+//        Color[] rgbArr = {
+//                new Color(0, 0, 248),
+//                new Color(0, 69, 255),
+//                new Color(0, 144, 255),
+//                new Color(0, 219, 255),
+//                new Color(110, 255, 145),
+//                new Color(235, 255, 20),
+//                new Color(255, 184, 0),
+//                new Color(255, 100, 0),
+//                new Color(255, 16, 0),
+//                new Color(160, 0, 0)
+//        };
         int size = 1;
         if(km == 1) size = 5;
         int width = 149 * size; // 이미지의 너비
@@ -145,24 +151,11 @@ public class NcFileService {
         }
 
         Color color = null;
+        int min = -45;
         for(int i = 0; i < value.length; i++){
-            for(int j = 0; j < rangeArr.length; j++){
-                if(j != 9){
-                    if(value[i] >= rangeArr[j] && value[i] < rangeArr[j+1]){
-                        //colorArray.add(rgbArr[j]);
-                        color = rgbArr[j];
-                        break;
-                    }else if(value[i] < rangeArr[0]){
-                        color = rgbArr[0];
-                        break;
-                    }
-                }else if(j == 9){
-                    if(value[i] > rangeArr[9]){
-                        color = rgbArr[9];
-                        break;
-                    }
-                }
-            }
+            int idx = (int) Math.abs(Math.floor(min - value[i]));
+            if(idx > 61) idx = 61;
+            color = rgbArr[idx];
             image.setRGB(i%width, height - 1 - (i/width), color.getRGB());
         }
         //double hue = (1 - value) * 120;
